@@ -38,6 +38,39 @@ test('packaging - 解码器是 optionalDependencies（不是硬依赖）', funct
   t.end()
 })
 
+test('packaging - zxing 版本范围避开 node>=24 的硬门槛', function (t) {
+  // @zxing/library 0.22.0 起 engines 要求 node>=24。npm 会把不满足 engines 的
+  // 可选依赖静默跳过 —— 装不上但不报错，于是"双解码器"变成单解码器，
+  // 而且只有在 npm ci 的干净环境里才暴露（dev 环境早已装过 0.23.0）。
+  // 因此这里锁死两点：范围不能覆盖 0.22+，且 lockfile 落的版本必须 <0.22。
+  const range = pkg.optionalDependencies['@zxing/library']
+  t.ok(/^\^?0\.21\./.test(range) || range === '~0.21.3',
+    'zxing 范围必须限制在 0.21.x，实得 ' + range)
+
+  const lockPath = path.join(ROOT, 'package-lock.json')
+  t.ok(fs.existsSync(lockPath), 'lockfile 存在')
+  const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'))
+  const entry = lock.packages && lock.packages['node_modules/@zxing/library']
+  t.ok(entry, 'lockfile 记录了 zxing')
+  const minor = Number(entry.version.split('.')[1])
+  t.ok(minor < 22, 'lockfile 锁定的 zxing 主版本必须 <0.22，实得 ' + entry.version)
+  if (entry.engines && entry.engines.node) {
+    const need = Number((entry.engines.node.match(/(\d+)/) || [])[1] || 0)
+    t.ok(need <= 18, '锁定的 zxing 不得要求 node>=24，实得 engines.node=' + entry.engines.node)
+  }
+  t.end()
+})
+
+test('packaging - lockfile 与 package.json 同名同版本', function (t) {
+  const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'))
+  t.equal(lock.name, pkg.name, 'lockfile name 一致（否则 npm ci 会报包名不匹配）')
+  t.equal(lock.version, pkg.version, 'lockfile version 一致')
+  t.equal(lock.lockfileVersion, 3, 'lockfileVersion 为 3（v1 不含 optional 依赖树）')
+  t.ok(lock.packages['node_modules/jsqr'], 'lockfile 含 jsqr')
+  t.ok(lock.packages['node_modules/@zxing/library'], 'lockfile 含 zxing')
+  t.end()
+})
+
 test('packaging - 无解码器时 audit 仍能跑完并标 inconclusive（软失败路径）', function (t) {
   // 真实模拟 optionalDependencies 装不上：把 'jsqr' / '@zxing/library' 的解析改成抛 MODULE_NOT_FOUND，
   // 清掉 scanproof 模块缓存，重新 require 一份干净实例。

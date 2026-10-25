@@ -78,6 +78,10 @@ npm run measure      # 事实矩阵与耗时（实测输出，非估算）
 **解码器是可选依赖**（`jsqr` / `@zxing/library`）。装不上时验收仍能跑，只是把结论标成 `inconclusive`，
 绝不会把"没测"算成"通过"。
 
+> `@zxing/library` 锁在 `^0.21.3`：0.22.0 起要求 `node >= 24`，npm 会**静默跳过**不满足的可选依赖
+> ——不报错、不警告，双解码器会悄悄退化成单解码器。这个坑只在 `npm ci` 干净环境里暴露
+> （见 [docs/LIMITS.md](docs/LIMITS.md)）。
+
 ---
 
 ## 用法
@@ -136,7 +140,7 @@ const { options, report: after } = await applySuggestions('https://example.com',
 
 ### 浏览器
 
-`demo/index.html` 是独立可跑的演示页（打包后 619 KiB，全部计算在本地，不上传任何内容）。
+`demo/index.html` 是独立可跑的演示页（打包后 577 KiB，全部计算在本地，不上传任何内容）。
 它和 CLI 跑的是同一套 `lib/scanproof` 代码。
 
 ---
@@ -199,17 +203,20 @@ const { options, report: after } = await applySuggestions('https://example.com',
 - [jsQR](https://github.com/cozmo/jsqr)（Apache-2.0）
 - [@zxing/library](https://github.com/zxing-js/library)（Apache-2.0）
 
-这不是为了"更保险"，而是实测发现两者**结论会分歧**：
+这不是为了"更保险"，而是实测发现两者**结论会分歧**：252 个场景（3 文本 × 3 尺寸 × 28 退化档位）里
+**27 个（10.7%）两引擎结论不一致**，且分歧是**双向的**：
 
 | 场景 | jsQR | ZXing |
 |---|---|---|
-| 旋转 3° | pass | **fail** |
-| 旋转 5° | pass | **fail** |
-| 旋转 8° | pass | **fail** |
-| 旋转 12° | pass | **fail** |
-| 模糊 1.8 | pass | **fail** |
+| 2px 模糊（116px） | pass | **fail** |
+| 1% 噪点（116px） | pass | **fail** |
+| 低照度 ×0.3（116px） | **fail** | pass |
+| 低照度 ×0.3（148px） | **fail** | pass |
+| 旋转 2°（60px） | pass | **fail** |
+| 旋转 6°（161px） | **fail** | pass |
 
-只用其中一个，会把"某引擎可读"写成"可扫"。所以报告里两个结论**并列**，
+在噪点/模糊上 jsQR 更强，在低照度与部分旋转上 ZXing 更强——换任何一个单引擎，
+都会在约一半的分歧场景里给出错误结论。所以报告里两个结论**并列**，
 `read-by-one` 一律降级为 `warn`（详见 [docs/EVIDENCE.md G4](docs/EVIDENCE.md)）。
 
 ---
@@ -241,18 +248,20 @@ const { options, report: after } = await applySuggestions('https://example.com',
 | 低对比 #bbb/#fff | fail | no-read-by-any | 4.000 | error:contrast（1.92:1） |
 | 长文本 v10+ | pass | read-by-both | 4.000 | — |
 
-**成本**（每个配置 5 次取中位数，重复 4 轮）：
+**成本**（每个配置 5 次取中位数，重复 7 轮；`@zxing/library` 0.21.3）：
 
 | 操作 | 中位耗时 |
 |---|---|
 | 上游生成 PNG | 3 ms |
-| 完整验收（9 闸门 + 双解码 + 8 变体） | **241–533 ms** |
-| 跳过变体 | 28–50 ms |
+| 完整验收（9 闸门 + 双解码 + 8 变体） | **126–320 ms**（7 轮中 6 轮落在 126–145） |
+| 跳过变体 | 14–17 ms |
 | 跳过解码 | 1 ms |
 
-区间不是"测量误差"，是**真实的负载敏感性**：本机空载时 241 ms，同机并行跑浏览器验收时
-升到 533 ms（4.6 倍差距）。因此本项目只报中位数与区间，不报单次值——
-单次计时在同负载下都能得出相反结论，这一点在 docs/EVIDENCE.md 之外单列，因为它是**方法**问题而不是性能问题。
+区间不是"测量误差"，是**真实的负载敏感性**：本机空载 131 ms，同机并行跑其他任务时出现 320 ms
+（2.4 倍差距）。因此只报中位数与区间，不报单次值——单次计时在同负载下都能得出相反结论。
+
+注：早期版本用 `@zxing/library@0.23.0`，同机测得 241–533 ms。降到 0.21.3 后明显更快，
+这是**依赖版本差异**而不是本项目的优化，如实标注以免误读为性能改进。
 
 ---
 
@@ -262,7 +271,8 @@ const { options, report: after } = await applySuggestions('https://example.com',
 npm test               # 全部（上游 + 新增）
 npm run test:upstream  # 只跑上游回归
 npm run test:scanproof # 只跑新增
-npm run verify:demo    # 真实浏览器验收演示页（13 项断言）
+npm run verify:demo    # 真实浏览器验收演示页（13 项功能断言）
+npm run probe:layout   # 布局探针（9 项：区块尺寸/重叠/溢出/WCAG 对比度/移动端）
 ```
 
 当前状态（本机实测）：
@@ -270,8 +280,8 @@ npm run verify:demo    # 真实浏览器验收演示页（13 项断言）
 | 范围 | 文件 | 通过 | 失败 | 说明 |
 |---|---|---|---|---|
 | 上游 unit + e2e | 33 | 30 | 3 | 3 个失败均因 `canvas@2` 原生模块在本机装不上（**改动前基线即如此**，见 [docs/BASELINE.md §3](docs/BASELINE.md)） |
-| 新增 scanproof | 8 | 8 | 0 | 355 条断言 |
-| 浏览器演示页 | — | 13 | 0 | 含 canvas 像素统计与截图非白屏校验 |
+| 新增 scanproof | 8 | 8 | 0 | 367 条断言 |
+| 浏览器演示页 | — | 13 + 9 | 0 | 13 项功能断言（含 canvas 像素统计、截图非白屏）+ 9 项布局断言（含 WCAG 对比度、无重叠、移动端单列） |
 
 新增测试覆盖的重点不是"代码有没有跑"，而是：
 
@@ -301,7 +311,7 @@ npm run verify:demo    # 真实浏览器验收演示页（13 项断言）
 详见 **[docs/DIFFERENCES.md](docs/DIFFERENCES.md)**。一句话概括：
 
 > 上游 `lib/core/` 与 `lib/renderer/` **一行未改**（可用 `git log -- lib/core` 核查），
-> 新增 3,306 行验收层；判定原则是"规范违规"与"读不出"分别判定，不互相掩盖。
+> 新增 3,617 行验收层；判定原则是"规范违规"与"读不出"分别判定，不互相掩盖。
 
 ---
 

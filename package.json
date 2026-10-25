@@ -52,7 +52,7 @@
     "yargs": "^15.3.1"
   },
   "optionalDependencies": {
-    "@zxing/library": "^0.23.0",
+    "@zxing/library": "^0.21.3",
     "jsqr": "^1.4.0"
   },
   "devDependencies": {
