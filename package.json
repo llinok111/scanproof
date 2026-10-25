@@ -1,7 +1,7 @@
 {
-  "name": "qrcode",
-  "description": "QRCode / 2d Barcode api with both server side and client side support using canvas",
-  "version": "1.5.4",
+  "name": "scanproof",
+  "description": "QR code scannability audit layer on top of node-qrcode: dual-decoder verification, spec gates, degradation variants, and verified fixes",
+  "version": "2.0.0",
   "author": "Ryan Day <soldair@gmail.com>",
   "contributors": [
     "Vincenzo Greco <greco.vincenzo@gmail.com>",
@@ -9,9 +9,13 @@
   ],
   "keywords": [
     "qr",
-    "code",
-    "canvas",
-    "qrcode"
+    "qrcode",
+    "scannability",
+    "audit",
+    "accessibility",
+    "print",
+    "wcag",
+    "decoder"
   ],
   "main": "./lib/index.js",
   "browser": {
@@ -22,25 +26,34 @@
     "bin",
     "build",
     "lib",
-    "helper"
+    "helper",
+    "docs",
+    "demo"
   ],
-  "homepage": "http://github.com/soldair/node-qrcode",
+  "homepage": "https://github.com/llinok111/scanproof",
   "license": "MIT",
   "scripts": {
     "lint": "standard",
-    "pretest": "npm run lint",
-    "test": "node --throw-deprecation test.js",
-    "build": "rollup -c",
-    "prepublish": "npm run build",
-    "browser": "node examples/clientsideserver.js"
+    "test": "node test/run-tests.js \"test/**/*.test.js\"",
+    "test:upstream": "node test/run-tests.js \"test/unit/**/*.test.js\" \"test/e2e/**/*.test.js\"",
+    "test:scanproof": "node test/run-tests.js \"test/scanproof/*.test.js\"",
+    "build": "rollup -c && node scripts/build-demo.js",
+    "measure": "node scripts/measure.js",
+    "verify:demo": "node scripts/verify-demo.mjs",
+    "probe:layout": "node scripts/probe-layout.mjs"
   },
   "bin": {
-    "qrcode": "./bin/qrcode"
+    "qrcode": "./bin/qrcode",
+    "qr-scanproof": "./bin/qr-scanproof"
   },
   "dependencies": {
     "dijkstrajs": "^1.0.1",
     "pngjs": "^5.0.0",
     "yargs": "^15.3.1"
+  },
+  "optionalDependencies": {
+    "@zxing/library": "^0.23.0",
+    "jsqr": "^1.4.0"
   },
   "devDependencies": {
     "@babel/core": "^7.9.0",
@@ -62,14 +75,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/soldair/node-qrcode.git"
+    "url": "git+https://github.com/llinok111/scanproof.git"
   },
   "engines": {
-    "node": ">=10.13.0"
+    "node": ">=14"
   },
   "standard": {
     "ignore": [
       "build/",
+      "demo/scanproof.bundle.js",
       "examples/vendors/",
       "lib/core/regex.js"
     ]

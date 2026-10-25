@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ScanProof · 二维码可扫性验收</title>
+<style>
+  :root {
+    --c-bg: #F0F0F0;
+    --c-surface: #FFFFFF;
+    --c-line: #E0E0E0;
+    --c-ink: #1A1A1A;
+    --c-ink-2: #666666;
+    --c-ink-3: #999999;
+    --c-accent: #4682B4;
+    --c-pass: #2E8B57;
+    --c-warn: #B8860B;
+    --c-fail: #B22222;
+    --c-unknown: #708090;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--c-bg); color: var(--c-ink); }
+  body {
+    font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    padding: 32px 24px 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--c-ink-2); margin: 0; max-width: 62ch; }
+  .sub code { font-family: var(--mono); font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--c-surface); border: 1px solid var(--c-line);
+    border-radius: 4px; padding: 18px;
+  }
+  .card + .card { margin-top: 16px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--c-ink-2); margin: 0 0 14px; font-weight: 600; }
+  label { display: block; font-size: 12px; color: var(--c-ink-2); margin: 12px 0 4px; }
+  label:first-of-type { margin-top: 0; }
+  input[type=text], select {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--c-line); border-radius: 3px;
+    font: inherit; font-size: 13px; background: var(--c-surface); color: var(--c-ink);
+  }
+  input[type=text]:focus, select:focus { outline: 2px solid var(--c-accent); outline-offset: -1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button {
+    width: 100%; margin-top: 16px; padding: 10px 14px; border: 0; border-radius: 3px;
+    background: var(--c-accent); color: #FFFFFF; font: inherit; font-weight: 600; cursor: pointer;
+  }
+  button:disabled { background: var(--c-ink-3); cursor: default; }
+  .hint { font-size: 12px; color: var(--c-ink-2); margin: 10px 0 0; }
+  .preview-card { position: sticky; top: 24px; }
+  .canvas-box { display: flex; justify-content: center; padding: 12px 0 4px; }
+  canvas { image-rendering: pixelated; border: 1px solid var(--c-line); background: #FFFFFF; }
+  .shown { text-align: center; font-family: var(--mono); font-size: 12px; color: var(--c-ink-2); margin: 8px 0 0; min-height: 18px; }
+  .shown--pass { color: var(--c-pass); }
+  .shown--warn { color: var(--c-warn); }
+  .shown--fail { color: var(--c-fail); }
+  .verdict { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-left: 3px solid var(--c-unknown); background: var(--c-bg); margin-bottom: 16px; }
+  .verdict--pass { border-color: var(--c-pass); }
+  .verdict--warn { border-color: var(--c-warn); }
+  .verdict--fail { border-color: var(--c-fail); }
+  .verdict__label { font-size: 20px; font-weight: 700; }
+  .verdict--pass .verdict__label { color: var(--c-pass); }
+  .verdict--warn .verdict__label { color: var(--c-warn); }
+  .verdict--fail .verdict__label { color: var(--c-fail); }
+  .verdict__meta { font-family: var(--mono); font-size: 12px; color: var(--c-ink-2); }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 16px; margin: 0 0 18px; }
+  .facts div { border-top: 1px solid var(--c-line); padding-top: 6px; }
+  .facts dt { font-size: 11px; color: var(--c-ink-2); text-transform: uppercase; letter-spacing: .05em; }
+  .facts dd { margin: 2px 0 0; font-family: var(--mono); font-size: 13px; }
+  .findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .finding { border: 1px solid var(--c-line); border-left: 3px solid var(--c-unknown); padding: 10px 12px; }
+  .finding--error { border-left-color: var(--c-fail); }
+  .finding--warning { border-left-color: var(--c-warn); }
+  .finding--info { border-left-color: var(--c-unknown); }
+  .finding__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .finding__head code { font-family: var(--mono); font-size: 12px; color: var(--c-ink-2); }
+  .finding__sev { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--c-ink-2); }
+  .finding__title { font-weight: 600; margin-top: 2px; }
+  .finding__ref, .finding__detail, .finding__fix { font-size: 13px; color: var(--c-ink-2); margin-top: 4px; }
+  .finding__fix { color: var(--c-ink); }
+  .empty { color: var(--c-ink-2); margin: 0; }
+  .notes { margin: 14px 0 0; padding-left: 18px; font-size: 13px; color: var(--c-ink-2); }
+  .variants { margin-top: 18px; border-top: 1px solid var(--c-line); padding-top: 12px; }
+  .variants summary { cursor: pointer; font-size: 13px; color: var(--c-ink-2); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  th { text-align: left; font-weight: 600; color: var(--c-ink-2); font-size: 12px; border-bottom: 1px solid var(--c-line); padding: 6px 8px 6px 0; }
+  td { border-bottom: 1px solid var(--c-line); padding: 6px 8px 6px 0; }
+  td.num { font-family: var(--mono); font-size: 12px; }
+  .muted { color: var(--c-ink-2); }
+  .chip { display: inline-block; padding: 1px 7px; border-radius: 2px; font-size: 11px; font-weight: 600; color: #FFFFFF; }
+  .chip--pass { background: var(--c-pass); }
+  .chip--warn { background: var(--c-warn); }
+  .chip--fail { background: var(--c-fail); }
+  .chip--inconclusive { background: var(--c-unknown); }
+  footer { margin-top: 36px; font-size: 12px; color: var(--c-ink-2); }
+  footer code { font-family: var(--mono); }
+  #error { color: var(--c-fail); font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ScanProof</h1>
+    <p class="sub">
+      在 <code>node-qrcode</code> 之上加一层可扫性验收：几何闸门 + 双解码器 + 劣化场景。
+      同一份报告在 CLI 与浏览器里跑的是同一套代码，判定可复现。文本不出本机。
+    </p>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>参数</h2>
+        <label for="text">内容</label>
+        <input type="text" id="text" value="https://example.com/order/12345" spellcheck="false">
+
+        <div class="row2">
+          <div>
+            <label for="ec">纠错等级</label>
+            <select id="ec">
+              <option value="L">L（7%）</option>
+              <option value="M" selected>M（15%）</option>
+              <option value="Q">Q（25%）</option>
+              <option value="H">H（30%）</option>
+            </select>
+          </div>
+          <div>
+            <label for="margin">静区（模块）</label>
+            <select id="margin">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label for="scale">每模块像素</label>
+            <select id="scale">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+              <option value="6">6</option>
+              <option value="8">8</option>
+            </select>
+          </div>
+          <div>
+            <label for="variant">叠加劣化</label>
+            <select id="variant"><option value="none">无（原始产物）</option></select>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div>
+            <label for="dark">深色</label>
+            <input type="text" id="dark" value="#000000" spellcheck="false">
+          </div>
+          <div>
+            <label for="light">浅色</label>
+            <input type="text" id="light" value="#FFFFFF" spellcheck="false">
+          </div>
+        </div>
+
+        <button id="run" type="button">运行验收</button>
+        <p class="hint" id="decoders">解码器状态加载中…</p>
+        <p id="error"></p>
+      </div>
+
+      <div class="card">
+        <h2>试这几组</h2>
+        <p class="hint" style="margin-top:0">
+          <strong>静区 0</strong>：规范硬性违规，但多数解码器仍能读 → 判 fail 而非靠解码结果。<br>
+          <strong>每模块 1px</strong>：模块太小，双解码器都读不出。<br>
+          <strong>深色 #FFFFFF</strong>：极性反转，默认检测失败。<br>
+          <strong>叠加「印刷噪点」</strong>：看劣化预览如何改变结论。
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <div class="card preview-card">
+        <h2>产物预览</h2>
+        <div class="canvas-box"><canvas id="preview" width="320" height="320"></canvas></div>
+        <p class="shown" id="shownVerdict"></p>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>验收报告</h2>
+        <div id="report"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    判定依据：ISO/IEC 18004:2015 §6.3.8（静区）、WCAG 2.1 SC 1.4.11（对比度）、
+    以及 docs/EVIDENCE.md 记录的实测阈值。能力边界见 docs/LIMITS.md。
+    二维码是 DENSO WAVE INCORPORATED 的注册商标。
+  </footer>
+</div>
+<script src="scanproof.bundle.js"></script>
+</body>
+</html>

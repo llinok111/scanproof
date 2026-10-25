@@ -3,3 +3,8 @@ node_modules
 coverage
 .nyc_output
 build
+.probe
+shots
+*.log
+.DS_Store
+Thumbs.db

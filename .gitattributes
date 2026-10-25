@@ -1,0 +1,31 @@
+# 只对"字节敏感的文本"与"本次新增的文件"固定 LF。
+#
+# 背景：test/e2e/*.expected.out 是 SVG 输出的逐字节期望值。Windows 下
+# core.autocrlf=true 会把工作区检出成 CRLF，导致 3 个 e2e 测试在上游代码
+# 零改动的情况下失败（见 docs/BASELINE.md §3）。这些文件仓库内存的是 LF，
+# 因此这里声明 eol=lf 只是阻止工作区被转成 CRLF，不改变仓库内容。
+#
+# 不写全局 `* text=auto eol=lf`：上游有文件在仓库内就是 CRLF 存储
+# （lib/core/error-correction-code.js），强制 LF 会让它整文件重写，
+# 破坏"上游源码零改动"这一可核查的事实。
+
+test/e2e/*.expected.out text eol=lf
+
+# 本次新增的文件：全部 LF
+lib/scanproof/*.js text eol=lf
+test/scanproof/*.js text eol=lf
+scripts/*.js text eol=lf
+docs/*.md text eol=lf
+demo/*.html text eol=lf
+demo/*.js text eol=lf
+bin/qr-scanproof text eol=lf
+README.md text eol=lf
+NOTICE text eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.zip binary
+
+build/** linguist-generated=true
+demo/scanproof.bundle.js linguist-generated=true

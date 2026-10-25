@@ -1,0 +1,147 @@
+#!/usr/bin/env node
+'use strict'
+
+/**
+ * qr-scanproof CLI
+ *
+ * 与上游 `qrcode` 命令互补：那边生成，这边验收。
+ * 退出码契约（便于 CI 使用）：
+ *   0  通过
+ *   1  警告（能扫，但存在风险）
+ *   2  失败（读不出 / 违反规范硬性要求）
+ *   3  不确定（解码器不可用，未验证）
+ */
+
+const path = require('path')
+const yargs = require('yargs')
+
+const pkg = require('../package.json')
+
+function buildParser (argv) {
+  return yargs(argv)
+    .usage('用法：$0 <文本> [选项]')
+    .option('margin', { alias: 'm', type: 'number', describe: '静区模块数（默认 4）' })
+    .option('width', { alias: 'w', type: 'number', describe: '输出像素宽度' })
+    .option('scale', { alias: 's', type: 'number', describe: '每模块像素' })
+    .option('errorCorrectionLevel', { alias: 'e', choices: ['L', 'M', 'Q', 'H'], describe: '纠错等级' })
+    .option('version', { alias: 'v', type: 'number', describe: '强制版本（1-40）' })
+    .option('dark', { alias: 'd', type: 'string', describe: '深色（#RRGGBB 或 #RRGGBBAA）' })
+    .option('light', { alias: 'l', type: 'string', describe: '浅色（#RRGGBB 或 #RRGGBBAA）' })
+    .option('file', { alias: 'f', type: 'string', describe: '验收一个已有 PNG 文件（不重新生成）' })
+    .option('json', { type: 'boolean', describe: '输出 JSON 报告' })
+    .option('no-variants', { type: 'boolean', describe: '跳过劣化场景扫描（更快）' })
+    .option('no-decode', { type: 'boolean', describe: '只做几何与规范检查（不加载解码器）' })
+    .option('suggest', { type: 'boolean', describe: '给出并验证修复方案' })
+    .option('write', { type: 'string', describe: '把建议后的产物写到此路径（需配合 --suggest）' })
+    .help('help')
+    .version('version', '显示版本', pkg.version)
+}
+
+function buildOptions (args) {
+  const o = {}
+  if (typeof args.margin === 'number') o.margin = args.margin
+  if (typeof args.width === 'number') o.width = args.width
+  if (typeof args.scale === 'number') o.scale = args.scale
+  if (args.errorCorrectionLevel) o.errorCorrectionLevel = args.errorCorrectionLevel
+  if (typeof args.version === 'number') o.version = args.version
+  if (args.dark || args.light) {
+    o.color = {}
+    if (args.dark) o.color.dark = args.dark
+    if (args.light) o.color.light = args.light
+  }
+  return o
+}
+
+function exitCodeFor (verdict) {
+  return verdict === 'pass' ? 0 : verdict === 'warn' ? 1 : verdict === 'fail' ? 2 : 3
+}
+
+function printHuman (rep) {
+  const { renderText } = require('../lib/scanproof/report')
+  process.stdout.write(renderText(rep) + '\n')
+}
+
+async function main (argv) {
+  const parser = buildParser(argv)
+  const args = parser.parse()
+  const reportOpts = { variants: args.variants !== false, requireDecoders: args.decode !== false }
+
+  // 先静音 zxing 的 NotFound 堆栈（它是正常控制流）
+  const { silenceZxingNoise } = require('../lib/scanproof/decoder')
+  const restore = silenceZxingNoise()
+
+  try {
+    if (args.file) {
+      const { auditBuffer } = require('../lib/scanproof/buffer')
+      const rep = await auditBuffer(args.file)
+      if (args.json) process.stdout.write(JSON.stringify(rep, null, 2) + '\n')
+      else {
+        process.stdout.write(`# ScanProof 文件验收\n\n文件：${rep.file}\n结论：${rep.verdict}\n\n`)
+        if (rep.error) process.stdout.write('错误：' + rep.error + '\n')
+        else {
+          process.stdout.write('| 项 | 值 |\n| --- | --- |\n')
+          process.stdout.write(`| 像素 | ${rep.geometry.pixels} × ${rep.geometry.height} |\n`)
+          process.stdout.write(`| 静区（px） | ${rep.geometry.quietZonePx} |\n`)
+          process.stdout.write(`| 解码 | ${rep.decode.consensus} |\n`)
+          if (rep.payload !== null) process.stdout.write(`| 读出内容 | \`${rep.payload}\` |\n`)
+          process.stdout.write('\n')
+          for (const g of rep.gates) process.stdout.write(`- [${g.severity}] ${g.id}：${g.title} — ${g.detail}\n`)
+          process.stdout.write('\n无法从像素反推：' + rep.unknown.join('、') + '\n')
+        }
+      }
+      return exitCodeFor(rep.verdict)
+    }
+
+    const text = args._[0]
+    if (typeof text !== 'string' || text === '') {
+      process.stderr.write('缺少待编码文本。用法：qr-scanproof "https://example.com"\n')
+      return 2
+    }
+
+    const options = buildOptions(args)
+
+    if (args.suggest) {
+      const { suggest, applySuggestions } = require('../lib/scanproof/suggest')
+      const res = await suggest(text, options, reportOpts)
+      if (args.json) {
+        process.stdout.write(JSON.stringify({ before: res.before, candidates: res.candidates }, null, 2) + '\n')
+      } else {
+        process.stdout.write(`当前结论：${res.before.verdict}\n\n候选修复（每条都已重新验收）：\n\n`)
+        process.stdout.write('| 方案 | 结论变化 | 是否采纳 |\n| --- | --- | --- |\n')
+        for (const c of res.candidates) {
+          process.stdout.write(`| ${c.label} | ${c.delta.verdict} | ${c.improves ? '是' : '否'} |\n`)
+        }
+        process.stdout.write('\n')
+      }
+      if (args.write) {
+        const applied = await applySuggestions(text, options, reportOpts)
+        const QRCode = require('../lib/index')
+        await QRCode.toFile(args.write, text, Object.assign({ type: 'png' }, applied.options))
+        process.stdout.write(`已按建议生成：${path.resolve(args.write)}（结论 ${applied.report.verdict}）\n`)
+        return exitCodeFor(applied.report.verdict)
+      }
+      const best = res.candidates.find(c => c.improves)
+      return exitCodeFor(best ? best.verdict : res.before.verdict)
+    }
+
+    const { audit } = require('../lib/scanproof/report')
+    const rep = await audit(text, options, reportOpts)
+    if (args.json) process.stdout.write(JSON.stringify(rep, null, 2) + '\n')
+    else printHuman(rep)
+    return exitCodeFor(rep.verdict)
+  } finally {
+    restore()
+  }
+}
+
+if (require.main === module) {
+  main(process.argv.slice(2)).then((code) => {
+    // 用 exitCode 而不是 exit()：process.exit 会丢掉管道里未 flush 的 stdout
+    process.exitCode = code
+  }).catch((e) => {
+    process.stderr.write('scanproof 内部错误：' + (e && e.stack ? e.stack : e) + '\n')
+    process.exitCode = 2
+  })
+}
+
+module.exports = { main, exitCodeFor }

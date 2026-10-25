@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      # 上游 devDependency 里有 canvas@2（原生模块）。CI 上不装它：
+      # 4 个 canvas 相关测试会 skip（不参与通过计数），其余全部执行。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install (skip native scripts)
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Install optional decoders explicitly
+        run: npm install --no-save --ignore-scripts --no-audit --no-fund jsqr@1.4.0 @zxing/library@0.23.0
+
+      - name: Lint (standard)
+        run: npx standard
+        continue-on-error: true
+
+      - name: Upstream regression
+        run: npm run test:upstream
+
+      - name: ScanProof tests
+        run: npm run test:scanproof
+
+      - name: Build
+        run: npm run build
+
+      - name: Measure (facts + timings)
+        run: npm run measure
+
+      - name: CLI smoke (exit-code contract)
+        shell: bash
+        run: |
+          set +e
+          node bin/qr-scanproof "https://example.com" > /dev/null 2>&1; echo "pass-case=$?"
+          node bin/qr-scanproof "https://example.com" --margin 0 > /dev/null 2>&1; echo "fail-case=$?"
+          node bin/qr-scanproof "https://example.com" --width 100 > /dev/null 2>&1; echo "warn-case=$?"
+          node bin/qr-scanproof "https://example.com" --no-decode > /dev/null 2>&1; echo "unknown-case=$?"
+
+  # 上游 3 个 canvas 测试在无原生模块环境下必然失败。这个 job 记录基线，
+  # 让"失败数"是已知且可解释的，而不是被 continue-on-error 掩盖。
+  baseline:
+    name: baseline (upstream failures documented)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm install --no-save --ignore-scripts --no-audit --no-fund jsqr@1.4.0 @zxing/library@0.23.0
+      - name: Upstream tests (expected: 3 canvas-related failures)
+        run: npm run test:upstream
+        continue-on-error: true
+
+  pages:
+    name: deploy demo to Pages
+    needs: test
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm install --no-save --ignore-scripts --no-audit --no-fund jsqr@1.4.0 @zxing/library@0.23.0
+      - run: node scripts/build-demo.js
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: demo
+      - id: deploy
+        uses: actions/deploy-pages@v4

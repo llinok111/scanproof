@@ -1,0 +1,35 @@
+ScanProof
+Copyright 2026 llinok111
+
+This product includes software developed as a derivative work of:
+
+  node-qrcode
+  Copyright (c) 2012 Ryan Day
+  https://github.com/soldair/node-qrcode
+  Licensed under the MIT License
+
+  ScanProof adds an original scannability-audit layer
+  (lib/scanproof/, bin/qr-scanproof, scripts/, demo/, docs/).
+  The upstream generation engine under lib/core/ and lib/renderer/ is
+  retained unmodified except where explicitly noted.
+
+This product depends on the following third-party decoders, loaded at
+runtime as optional dependencies:
+
+  jsQR
+  Copyright (c) cozmo
+  https://github.com/cozmo/jsqr
+  Licensed under the Apache License, Version 2.0
+
+  @zxing/library (ZXing-js)
+  https://github.com/zxing-js/library
+  Licensed under the Apache License, Version 2.0
+
+This product is NOT affiliated with, endorsed by, or sponsored by
+DENSO WAVE INCORPORATED. "QR Code" is a registered trademark of
+DENSO WAVE INCORPORATED.
+
+The scannability judgement expressed by ScanProof (the "verdict" field,
+the gate list, and the exit-code contract) is the author's own heuristic
+work and is not an official conformance test against ISO/IEC 18004.
+See docs/LIMITS.md for the boundaries of what it does and does not prove.
