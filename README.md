@@ -273,6 +273,8 @@ npm run test:upstream  # 只跑上游回归
 npm run test:scanproof # 只跑新增
 npm run verify:demo    # 真实浏览器验收演示页（13 项功能断言）
 npm run probe:layout   # 布局探针（9 项：区块尺寸/重叠/溢出/WCAG 对比度/移动端）
+npm run decoders:agreement  # 双解码器分歧搜索（docs/EVIDENCE.md G4 的依据）
+npm run decoders:parity -- --baseline . --compare <dir>  # 解码器版本对照
 ```
 
 当前状态（本机实测）：
@@ -335,4 +337,5 @@ npm run probe:layout   # 布局探针（9 项：区块尺寸/重叠/溢出/WCAG 
 | [docs/LIMITS.md](docs/LIMITS.md) | 能力边界、不能反推的信息、已知误判 |
 | [docs/VARIANTS.md](docs/VARIANTS.md) | 8 个退化场景的理由与阈值 |
 | [docs/DIFFERENCES.md](docs/DIFFERENCES.md) | 与原项目的逐项差异 |
+| [docs/UPSTREAM-README.md](docs/UPSTREAM-README.md) | 上游 node-qrcode 的原始 API 文档（未删改） |
 | [docs/UPSTREAM-README.md](docs/UPSTREAM-README.md) | 上游 node-qrcode 的原始 API 文档 |

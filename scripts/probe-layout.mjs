@@ -19,11 +19,18 @@ const PORT = Number(process.env.CDP_PORT || 12033)
 const PROFILE = join(ROOT, '.probe/cdp-layout')
 const SHOTS = join(ROOT, 'shots/verify')
 
+// 与 verify-demo.mjs 同一份候选列表（不硬编码本机用户名）
 const CANDIDATES = [
+  process.env.CHROME_PATH,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe'
-]
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+].filter(Boolean)
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 

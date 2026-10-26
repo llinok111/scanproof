@@ -40,7 +40,9 @@
     "build": "rollup -c && node scripts/build-demo.js",
     "measure": "node scripts/measure.js",
     "verify:demo": "node scripts/verify-demo.mjs",
-    "probe:layout": "node scripts/probe-layout.mjs"
+    "probe:layout": "node scripts/probe-layout.mjs",
+    "decoders:agreement": "node scripts/decoder-agreement.js",
+    "decoders:parity": "node scripts/decoder-version-parity.js"
   },
   "bin": {
     "qrcode": "./bin/qrcode",

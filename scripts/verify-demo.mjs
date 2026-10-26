@@ -21,12 +21,18 @@ const PORT = Number(process.env.CDP_PORT || 12031)
 const PROFILE = join(ROOT, '.probe/cdp-profile')
 const SHOTS = join(ROOT, 'shots/verify')
 
+// 浏览器路径：不硬编码本机用户名，用环境变量与标准安装位置推导
 const CANDIDATES = [
+  process.env.CHROME_PATH,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Users/15082/.agent-browser/browsers/chrome-152.0.7977.82/chrome.exe'
-]
+  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+].filter(Boolean)
 
 function findBrowser () {
   for (const p of CANDIDATES) if (existsSync(p)) return p
