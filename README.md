@@ -140,8 +140,11 @@ const { options, report: after } = await applySuggestions('https://example.com',
 
 ### 浏览器
 
-`demo/index.html` 是独立可跑的演示页（打包后 577 KiB，全部计算在本地，不上传任何内容）。
-它和 CLI 跑的是同一套 `lib/scanproof` 代码。
+在线演示：**https://llinok111.github.io/scanproof/** ｜ 本地演示：`demo/index.html`
+（打包后 577 KiB，全部计算在本地，不上传任何内容）。演示页和 CLI 跑的是同一套 `lib/scanproof` 代码。
+
+线上页面也被同一套断言验过（`node scripts/verify-demo.mjs --url <地址>`，13 项全绿），
+不是"只部署了没验证"。
 
 ---
 
@@ -271,7 +274,8 @@ const { options, report: after } = await applySuggestions('https://example.com',
 npm test               # 全部（上游 + 新增）
 npm run test:upstream  # 只跑上游回归
 npm run test:scanproof # 只跑新增
-npm run verify:demo    # 真实浏览器验收演示页（13 项功能断言）
+npm run verify:demo    # 真实浏览器验收本地演示页（13 项功能断言）
+node scripts/verify-demo.mjs --url https://llinok111.github.io/scanproof/  # 验收线上页面
 npm run probe:layout   # 布局探针（9 项：区块尺寸/重叠/溢出/WCAG 对比度/移动端）
 npm run decoders:agreement  # 双解码器分歧搜索（docs/EVIDENCE.md G4 的依据）
 npm run decoders:parity -- --baseline . --compare <dir>  # 解码器版本对照

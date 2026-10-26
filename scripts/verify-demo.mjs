@@ -14,7 +14,11 @@
  * 流程：headless Edge/Chrome → 打开 file://demo/index.html → 等报告渲染 →
  *       读判定文本 + 统计 canvas 像素 + 收集 console 错误 → 截图落盘。
  *
- * 用法：node scripts/verify-demo.mjs [--keep]
+ * 用法：
+ *   node scripts/verify-demo.mjs                 # 验收本地 demo/index.html（file://）
+ *   node scripts/verify-demo.mjs --url <URL>     # 验收已部署的线上页面
+ *   node scripts/verify-demo.mjs --keep          # 跑完不关浏览器，便于手动看
+ *
  * 退出码：0 全通过 / 1 有断言失败 / 2 环境不可用
  */
 

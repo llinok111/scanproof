@@ -183,6 +183,33 @@ test('packaging - CI 用 npm ci 且校验解码器存在', function (t) {
   t.end()
 })
 
+test('packaging - CI 命令与本地 npm scripts 一致（本地绿/CI 红的根因）', function (t) {
+  // 本项目踩过：本地跑 `npx standard --env browser --env node <paths>`（通过），
+  // CI 跑 `npm run lint`（= bare standard，走 package.json 配置）→ 六个矩阵 job 全红。
+  // 差别在**命令**而不是环境。这里断言 CI 只通过 npm scripts 调用这些步骤。
+  const src = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+
+  const runLines = src.split('\n')
+    .filter(l => /^\s*-?\s*run:/.test(l) || /^\s*run:\s/.test(l))
+    .map(l => l.replace(/^\s*-?\s*run:\s*/, '').trim())
+
+  const scriptCalls = runLines.filter(c => /^npm (run|ci|test)\b/.test(c))
+  t.ok(scriptCalls.length >= 3, '多数步骤通过 npm scripts 调用，实得 ' + scriptCalls.length)
+
+  // 明确禁用两种"绕过配置"的写法
+  t.ok(!runLines.some(c => /\bnpx standard\b/.test(c)), 'CI 不得内联 npx standard（会绕过 standard 配置）')
+  t.ok(!runLines.some(c => /standard --env/.test(c)), 'CI 不得用 --env 覆盖 lint 环境')
+
+  // lint 脚本本身必须是 bare standard
+  t.equal(pkg.scripts.lint, 'standard', 'npm run lint 就是 bare standard')
+  t.ok(pkg.scripts.test.indexOf('test/run-tests.js') >= 0, 'npm test 走本地测试入口')
+  t.ok(/npm run test:scanproof/.test(src), 'CI 调用 npm run test:scanproof')
+  t.ok(/npm run test:upstream/.test(src), 'CI 调用 npm run test:upstream')
+  t.ok(/npm run build/.test(src), 'CI 调用 npm run build')
+  t.ok(/npm run measure/.test(src), 'CI 调用 npm run measure')
+  t.end()
+})
+
 test('packaging - NOTICE 存在且声明来源与新增贡献', function (t) {
   const n = fs.readFileSync(path.join(ROOT, 'NOTICE'), 'utf8')
   t.ok(n.indexOf('node-qrcode') >= 0, '声明上游')
