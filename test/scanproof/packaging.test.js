@@ -128,6 +128,61 @@ test('packaging - 许可证文件是 MIT 原文且未被追加污染', function 
   t.end()
 })
 
+test('packaging - CI 工作流 YAML 可解析（远端才暴露的缺陷）', function (t) {
+  // 一个未加引号的 `name: X (expected: 3 failures)` 就能让整个 workflow 失效：
+  // GitHub 报 "workflow file issue"、0 秒失败、jobs 为空，本地不做语法检查根本发现不了。
+  // 这里用可用的 YAML 解析器在本地拦下这一类问题。
+  let parse = null
+  for (const mod of ['js-yaml', 'yaml']) {
+    try {
+      const m = require(mod)
+      parse = mod === 'js-yaml' ? (s) => m.load(s) : (s) => m.parse(s)
+      break
+    } catch (e) { /* 试下一个 */ }
+  }
+  if (!parse) {
+    t.skip('环境无可用的 YAML 解析器（js-yaml / yaml 均缺失），本项未执行')
+    t.end()
+    return
+  }
+
+  const dir = path.join(ROOT, '.github/workflows')
+  const files = fs.readdirSync(dir).filter(f => /\.ya?ml$/.test(f))
+  t.ok(files.length >= 1, '至少一个工作流文件，实得 ' + files.length)
+
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(dir, f), 'utf8')
+    let doc = null
+    t.doesNotThrow(function () { doc = parse(src) }, f + ' YAML 语法正确')
+    if (!doc) continue
+
+    // YAML 1.1 会把裸 on 解析成布尔键 true，所以两种键名都要看
+    const triggers = doc.on || doc.true
+    t.ok(triggers && typeof triggers === 'object', f + ' 有 on 触发器')
+    t.ok(triggers && triggers.push, f + ' 有 push 触发')
+    t.ok(doc.jobs && Object.keys(doc.jobs).length > 0, f + ' 至少一个 job')
+
+    for (const [jid, job] of Object.entries(doc.jobs || {})) {
+      t.ok(job['runs-on'], jid + ' 有 runs-on')
+      t.ok(Array.isArray(job.steps) && job.steps.length > 0, jid + ' 有 steps')
+      for (const s of job.steps || []) {
+        t.ok(s.uses || s.run, jid + ' 的每个 step 都有 uses 或 run')
+      }
+    }
+  }
+  t.end()
+})
+
+test('packaging - CI 用 npm ci 且校验解码器存在', function (t) {
+  // npm install 在 lockfile 与实际依赖不一致时会"就地修正"，静默掩盖问题；
+  // npm ci 会直接失败，这才是 CI 该有的行为。
+  const src = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8')
+  t.ok(/npm ci/.test(src), 'CI 使用 npm ci')
+  t.ok(/decoder.*available|Decoders present/.test(src), 'CI 显式校验两个解码器已装上')
+  t.ok(!/zxing\/library@0\.23/.test(src), 'CI 不再硬装要求 node>=24 的 zxing 版本')
+  t.end()
+})
+
 test('packaging - NOTICE 存在且声明来源与新增贡献', function (t) {
   const n = fs.readFileSync(path.join(ROOT, 'NOTICE'), 'utf8')
   t.ok(n.indexOf('node-qrcode') >= 0, '声明上游')
