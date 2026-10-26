@@ -17,7 +17,7 @@
 | 已有图片验收 | 无 | `--file` / `auditBuffer`（从像素反推静区、模块尺寸、极性） |
 | CI 可用性 | 无退出码契约 | 0/1/2/3 四档退出码，语义明确 |
 | 浏览器内验收 | 无 | `demo/` 演示页，与 CLI 同一套代码（打包为 577 KiB） |
-| 测试 | 33 个文件（canvas 相关 3 个在 Windows 不可跑） | 上游 33 + **新增 8 个文件 / 367 条断言** |
+| 测试 | 33 个文件（canvas 相关 3 个在 Windows 不可跑） | 上游 33 + **新增 8 个文件 / 408 条断言** |
 
 ## 2. 代码差异
 
@@ -39,7 +39,7 @@
 | `scripts/build-demo.js` | 54 | 演示页打包 |
 | `scripts/verify-demo.mjs` | 274 | 真实浏览器验收（13 项断言） |
 | `demo/index.html` + `demo/app.js` | 420 | 演示页 |
-| `test/scanproof/*.test.js` | 8 文件 / 889 行 | 367 条断言 |
+| `test/scanproof/*.test.js` | 8 文件 / 889 行 | 408 条断言 |
 | `test/run-tests.js` | 18 | Windows 下可跑的上游测试入口（修 `node_modules/.bin/tap` 的 sh 脚本问题） |
 
 合计新增源码 **3,617 行**（2,728 行代码 + 889 行测试，不含 `docs/`）。
