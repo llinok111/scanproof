@@ -1,3 +1,10 @@
+'use strict'
+
+/* global fetch, WebSocket, AbortSignal */
+// 以上三个是 Node 18+ 的运行时全局（undici 与 WHATWG WebSocket）。
+// standard 的默认环境表不含它们，因此显式声明。
+// 不用 --env browser 覆盖：那会同时放行 window/document，掩盖真实误用。
+
 /**
  * 演示页布局探针（不依赖肉眼与截图）
  *

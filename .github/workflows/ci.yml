@@ -33,8 +33,10 @@ jobs:
       - name: Decoders present
         run: node -e "const d=require('./lib/scanproof/decoder');const a=d.available();console.log(a);if(!a.jsqr||!a.zxing)process.exit(1)"
 
+      # 用 npm run lint 而不是内联 npx standard <paths>：
+      # 内联写法会绕过 package.json 的 standard 配置，本地过而 CI 红（本项目踩过）。
       - name: Lint (standard)
-        run: npx standard lib/scanproof bin/qr-scanproof scripts test/scanproof test/run-tests.js
+        run: npm run lint
 
       - name: ScanProof tests
         run: npm run test:scanproof
