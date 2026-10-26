@@ -1,7 +1,7 @@
 # 与原项目的差异（ScanProof vs node-qrcode 1.5.4）
 
 > 一句话：**上游回答"怎么生成"，本层回答"生成的能不能扫"。**
-> 上游代码零改动（除 `package.json` 元数据与 `.gitattributes`），新增能力全部是叠加。
+> 上游代码零改动（仅 4 个元数据/工程配置文件被修改，生成逻辑一行未动），新增能力全部是叠加。
 
 ## 1. 能力差异
 
@@ -53,8 +53,24 @@
 | `NOTICE` | 新增 | 声明衍生关系、第三方解码器、商标归属 |
 | `docs/*.md` | 新增 5 份 | 候选核实 / 基线 / 证据 / 边界 / 变体 |
 
-**上游 `lib/core/` 与 `lib/renderer/` 一行未改**。这是可核查的事实，不是声明：
-`git log --oneline -- lib/core lib/renderer` 在本仓库里只会看到上游提交。
+**上游生成相关文件零改动**，这是可核查的事实而不是声明：
+
+```bash
+# 相对上游 1.5.4（3848ed2）列出所有被修改的文件
+git diff --name-status 3848ed2..HEAD | awk '$1=="M"'
+```
+
+输出只有 4 个文件，全部是元数据与工程配置：
+
+| 文件 | 为什么必须改 |
+|---|---|
+| `package.json` | 改名 scanproof、加 bin、依赖归位（见上表） |
+| `package-lock.json` | 上游是 lockfileVersion 1 且名为 qrcode，新依赖没记录 |
+| `README.md` | 换成新层说明；上游原文未删，备份在 docs/UPSTREAM-README.md |
+| `.gitignore` | 加 .probe/ 与 shots/（本地验收产物） |
+
+`lib/core/`、`lib/renderer/`、`helper/`、`examples/`、`bin/qrcode` **既未修改也未删除**；
+`bin/` 下只是新增了 `qr-scanproof`。
 
 ## 3. 判定逻辑差异（最关键的一条）
 
